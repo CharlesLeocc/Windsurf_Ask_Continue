@@ -644,23 +644,24 @@ function getWebviewContent(reason: string, requestId: string): string {
 
     <div class="upload-section">
       <div class="upload-options">
-        <label>上传图片 (可选):</label>
-        <label><input type="radio" name="uploadType" value="base64" checked> 图片内容 (Base64)</label>
+        <label>上传文件 (可选):</label>
+        <label><input type="radio" name="uploadType" value="base64" checked> 文件内容</label>
         <label><input type="radio" name="uploadType" value="path"> 仅路径</label>
+        <input type="file" id="fileInput" multiple style="display: none;" />
       </div>
       <div class="upload-hint" id="dropZone">
-        <span id="dropText">📋 <span id="pasteKey">Ctrl</span>+V 粘贴图片 或 拖拽文件到此处<br><small style="opacity: 0.7;">支持从左侧文件资源管理器直接拖拽</small></span>
+        <span id="dropText">📋 <span id="pasteKey">Ctrl</span>+V 粘贴 | 拖拽文件 | <a href="#" id="selectFiles" style="color: var(--vscode-textLink-foreground, #3794ff);">点击选择</a><br><small style="opacity: 0.7;">支持从左侧文件资源管理器直接拖拽</small></span>
         <div id="imagePreviewContainer" style="display: none;">
           <div class="images-grid" id="imagesGrid"></div>
           <div class="image-info" id="imageInfo"></div>
-          <button type="button" class="remove-all" id="removeAllImages">✕ 移除全部图片</button>
+          <button type="button" class="remove-all" id="removeAllImages">🗑️ 清空全部</button>
         </div>
       </div>
     </div>
     
     <div class="button-group">
-      <button class="btn-primary" id="continueBtn">▶ 继续执行</button>
-      <button class="btn-secondary" id="endBtn">■ 结束对话</button>
+      <button class="btn-primary" id="continueBtn">🚀 继续执行</button>
+      <button class="btn-secondary" id="endBtn">⭕ 结束对话</button>
     </div>
     
     <div class="shortcuts">
@@ -685,15 +686,32 @@ function getWebviewContent(reason: string, requestId: string): string {
     const imageInfo = document.getElementById('imageInfo');
     const removeAllBtn = document.getElementById('removeAllImages');
     
-    // 支持多张图片和文件的数组
-    let imageList = [];
-    let fileList = [];  // 非图片文件列表
+    // 支持多种文件的数组
+    let fileList = [];
     
-    // 检测Mac系统，更新快捷键提示（兼容多种检测方式）
-    const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.platform) || /Mac/i.test(navigator.userAgent);
+    // 文件选择器
+    const fileInput = document.getElementById('fileInput');
+    const selectFilesLink = document.getElementById('selectFiles');
+    
+    selectFilesLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      fileInput.click();
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          handleFile(files[i]);
+        }
+      }
+      fileInput.value = ''; // 清空以便重复选择
+    });
+    
+    // 检测Mac系统，更新快捷键提示
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0 || navigator.userAgent.toUpperCase().indexOf('MAC') >= 0;
     if (isMac) {
-      const pasteKeyEl = document.getElementById('pasteKey');
-      if (pasteKeyEl) pasteKeyEl.textContent = '⌘';
+      document.getElementById('pasteKey').textContent = '⌘';
     }
     
     // Focus textarea on load
@@ -710,22 +728,22 @@ function getWebviewContent(reason: string, requestId: string): string {
       }
     });
     
-    // Handle paste event for images (Ctrl+V / Cmd+V) - 支持粘贴多张图片
+    // Handle paste event - 支持粘贴图片和文件
     document.addEventListener('paste', (e) => {
       const items = e.clipboardData?.items;
       if (!items) return;
       
-      let hasImage = false;
+      let hasFile = false;
       for (const item of items) {
-        if (item.type.startsWith('image/')) {
-          hasImage = true;
+        if (item.kind === 'file') {
+          hasFile = true;
           const file = item.getAsFile();
           if (file) {
-            handleImageFile(file);
+            handleFile(file);
           }
         }
       }
-      if (hasImage) {
+      if (hasFile) {
         e.preventDefault();
       }
     });
@@ -739,13 +757,13 @@ function getWebviewContent(reason: string, requestId: string): string {
     
     dropZone.addEventListener('dragleave', (e) => {
       e.preventDefault();
-      if (imageList.length === 0) {
+      if (fileList.length === 0) {
         dropZone.style.borderColor = '';
         dropZone.style.backgroundColor = '';
       }
     });
     
-    // 拖拽放下 - 支持多张图片和从文件资源管理器拖拽
+    // 拖拽放下 - 支持多种文件和从文件资源管理器拖拽
     dropZone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropZone.style.borderColor = '';
@@ -765,12 +783,7 @@ function getWebviewContent(reason: string, requestId: string): string {
       const files = e.dataTransfer?.files;
       if (files && files.length > 0) {
         for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          if (file.type.startsWith('image/')) {
-            handleImageFile(file);
-          } else {
-            handleNonImageFile(file);
-          }
+          handleFile(files[i]);
         }
       }
     });
@@ -788,86 +801,68 @@ function getWebviewContent(reason: string, requestId: string): string {
       const ext = fileName.split('.').pop()?.toLowerCase() || '';
       
       // 判断是否为图片
-      const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'];
-      if (imageExts.includes(ext)) {
+      if (isImage(fileName)) {
         // 图片文件：发送消息给扩展读取文件内容
         vscode.postMessage({ command: 'readFile', path: filePath, type: 'image' });
       } else {
-        // 非图片文件
+        // 非图片文件：直接添加到列表
         const fileData = {
           path: filePath,
           name: fileName,
-          ext: ext,
-          id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-          icon: getFileIcon(ext)
+          size: 0,
+          type: '',
+          isImage: false,
+          id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
         };
         fileList.push(fileData);
-        updateImagePreview();
+        updateFilePreview();
       }
     }
     
-    // 处理非图片文件
-    function handleNonImageFile(file) {
-      const ext = file.name.split('.').pop()?.toLowerCase() || '';
-      const fileData = {
-        path: file.path || '',
-        name: file.name,
-        ext: ext,
-        size: file.size,
-        id: Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        icon: getFileIcon(ext)
-      };
-      fileList.push(fileData);
-      updateImagePreview();
-    }
-    
-    // 根据文件扩展名获取图标
-    function getFileIcon(ext) {
+    // 获取文件图标
+    function getFileIcon(fileName) {
+      const ext = fileName.split('.').pop().toLowerCase();
       const icons = {
-        // 代码文件
-        'js': '📜', 'ts': '📘', 'jsx': '⚛️', 'tsx': '⚛️',
-        'py': '🐍', 'java': '☕', 'c': '🔧', 'cpp': '🔧', 'h': '🔧',
-        'cs': '🎯', 'go': '🔵', 'rs': '🦀', 'rb': '💎',
-        'php': '🐘', 'swift': '🍎', 'kt': '🎨', 'scala': '🔴',
-        'vue': '💚', 'svelte': '🔥', 'html': '🌐', 'css': '🎨',
-        'scss': '🎨', 'less': '🎨', 'json': '📋', 'xml': '📄',
-        'yaml': '📝', 'yml': '📝', 'toml': '⚙️', 'ini': '⚙️',
-        'sql': '🗃️', 'sh': '🖥️', 'bash': '🖥️', 'zsh': '🖥️',
-        'ps1': '🖥️', 'bat': '🖥️', 'cmd': '🖥️',
-        // 文档
-        'md': '📝', 'txt': '📄', 'doc': '📄', 'docx': '📄',
-        'pdf': '📕', 'xls': '📊', 'xlsx': '📊', 'ppt': '📽️', 'pptx': '📽️',
-        'csv': '📊', 'rtf': '📄',
-        // 压缩包
-        'zip': '📦', 'rar': '📦', 'tar': '📦', 'gz': '📦', '7z': '📦',
-        // 配置
-        'env': '🔒', 'gitignore': '🚫', 'dockerfile': '🐳',
-        'makefile': '🔨', 'cmake': '🔨'
+        'pdf': '📄', 'doc': '📝', 'docx': '📝', 'txt': '📃',
+        'xls': '📊', 'xlsx': '📊', 'csv': '📊',
+        'ppt': '📽️', 'pptx': '📽️',
+        'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
+        'js': '💻', 'ts': '💻', 'py': '🐍', 'java': '☕', 'c': '💻', 'cpp': '💻', 'h': '💻',
+        'html': '🌐', 'css': '🎨', 'json': '📋', 'xml': '📋', 'yaml': '📋', 'yml': '📋',
+        'md': '📖', 'log': '📜',
+        'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'svg': '🖼️', 'webp': '🖼️', 'bmp': '🖼️',
+        'mp3': '🎵', 'wav': '🎵', 'mp4': '🎬', 'avi': '🎬', 'mov': '🎬'
       };
-      return icons[ext] || '📄';
+      return icons[ext] || '📁';
     }
     
-    // 处理单个图片文件 - 添加到图片列表
-    function handleImageFile(file) {
+    // 判断是否为图片
+    function isImage(fileName) {
+      const ext = fileName.split('.').pop().toLowerCase();
+      return ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext);
+    }
+    
+    // 处理单个文件 - 添加到文件列表
+    function handleFile(file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const imageData = {
+        const fileData = {
           base64: e.target.result,
           name: file.name,
           size: file.size,
+          type: file.type,
+          isImage: file.type.startsWith('image/'),
           id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
         };
-        imageList.push(imageData);
-        updateImagePreview();
+        fileList.push(fileData);
+        updateFilePreview();
       };
       reader.readAsDataURL(file);
     }
     
-    // 更新图片和文件预览区域
-    function updateImagePreview() {
-      const totalItems = imageList.length + fileList.length;
-      
-      if (totalItems === 0) {
+    // 更新文件预览区域
+    function updateFilePreview() {
+      if (fileList.length === 0) {
         dropText.style.display = 'block';
         imagePreviewContainer.style.display = 'none';
         dropZone.classList.remove('has-image');
@@ -878,55 +873,44 @@ function getWebviewContent(reason: string, requestId: string): string {
         imagePreviewContainer.style.display = 'block';
         dropZone.classList.add('has-image');
         
-        // 生成图片预览HTML
-        let previewHtml = '';
-        
-        // 图片预览
-        previewHtml += imageList.map((img, index) => 
-          '<div class="image-item" data-id="' + img.id + '" data-type="image">' +
-            '<img src="' + img.base64 + '" class="image-preview" title="' + img.name + '" />' +
-            '<button type="button" class="remove-single" data-type="image" data-index="' + index + '">✕</button>' +
-          '</div>'
-        ).join('');
-        
-        // 文件预览
-        previewHtml += fileList.map((file, index) => 
-          '<div class="image-item" data-id="' + file.id + '" data-type="file">' +
-            '<div class="file-preview" title="' + (file.path || file.name) + '">' +
-              '<span class="file-icon">' + file.icon + '</span>' +
-              '<span class="file-name">' + file.name + '</span>' +
-            '</div>' +
-            '<button type="button" class="remove-single" data-type="file" data-index="' + index + '">✕</button>' +
-          '</div>'
-        ).join('');
-        
-        imagesGrid.innerHTML = previewHtml;
+        // 生成文件预览HTML
+        imagesGrid.innerHTML = fileList.map((file, index) => {
+          if (file.isImage && file.base64) {
+            return '<div class="image-item" data-id="' + file.id + '">' +
+              '<img src="' + file.base64 + '" class="image-preview" title="' + file.name + '" />' +
+              '<button type="button" class="remove-single" data-index="' + index + '">✕</button>' +
+            '</div>';
+          } else {
+            return '<div class="image-item" data-id="' + file.id + '">' +
+              '<div class="file-preview" title="' + (file.path || file.name) + '">' +
+                '<span class="file-icon">' + getFileIcon(file.name) + '</span>' +
+                '<span class="file-name">' + file.name + '</span>' +
+              '</div>' +
+              '<button type="button" class="remove-single" data-index="' + index + '">✕</button>' +
+            '</div>';
+          }
+        }).join('');
         
         // 显示数量统计
-        let infoText = '';
-        if (imageList.length > 0) {
-          const totalImgSize = imageList.reduce((sum, img) => sum + (img.size || 0), 0);
-          infoText += imageList.length + ' 张图片';
-          if (totalImgSize > 0) infoText += ' (' + formatFileSize(totalImgSize) + ')';
+        const imageCount = fileList.filter(f => f.isImage).length;
+        const otherCount = fileList.length - imageCount;
+        const totalSize = fileList.reduce((sum, f) => sum + (f.size || 0), 0);
+        let infoText = '共 ' + fileList.length + ' 个文件';
+        if (imageCount > 0 && otherCount > 0) {
+          infoText = imageCount + ' 张图片 + ' + otherCount + ' 个文件';
+        } else if (imageCount > 0) {
+          infoText = imageCount + ' 张图片';
         }
-        if (fileList.length > 0) {
-          if (infoText) infoText += ' + ';
-          infoText += fileList.length + ' 个文件';
-        }
+        if (totalSize > 0) infoText += ' (' + formatFileSize(totalSize) + ')';
         imageInfo.textContent = infoText;
         
         // 绑定单个删除按钮事件
         imagesGrid.querySelectorAll('.remove-single').forEach(btn => {
           btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const type = btn.getAttribute('data-type');
             const index = parseInt(btn.getAttribute('data-index'));
-            if (type === 'image') {
-              imageList.splice(index, 1);
-            } else {
-              fileList.splice(index, 1);
-            }
-            updateImagePreview();
+            fileList.splice(index, 1);
+            updateFilePreview();
           });
         });
       }
@@ -937,14 +921,16 @@ function getWebviewContent(reason: string, requestId: string): string {
       const message = event.data;
       if (message.command === 'fileContent') {
         if (message.type === 'image' && message.base64) {
-          const imageData = {
+          const fileData = {
             base64: message.base64,
             name: message.name,
             size: message.size || 0,
+            type: 'image',
+            isImage: true,
             id: Date.now() + '_' + Math.random().toString(36).substr(2, 9)
           };
-          imageList.push(imageData);
-          updateImagePreview();
+          fileList.push(fileData);
+          updateFilePreview();
         }
       }
     });
@@ -956,12 +942,11 @@ function getWebviewContent(reason: string, requestId: string): string {
       return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
     
-    // 移除全部图片和文件
+    // 移除全部文件
     removeAllBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      imageList = [];
       fileList = [];
-      updateImagePreview();
+      updateFilePreview();
     });
     
     // Button handlers
@@ -971,29 +956,23 @@ function getWebviewContent(reason: string, requestId: string): string {
     function submitContinue() {
       let text = textarea.value.trim();
       
-      // 如果有图片，将所有图片以Markdown格式附加到消息中（便于AI识别和显示）
-      if (imageList.length > 0) {
+      // 如果有文件，将所有文件信息附加到消息中
+      if (fileList.length > 0) {
         const uploadType = document.querySelector('input[name="uploadType"]:checked')?.value || 'base64';
         if (uploadType === 'base64') {
-          const imagesText = imageList.map((img, i) => 
-            '[已上传图片 ' + (i + 1) + ': ' + img.name + ' (' + formatFileSize(img.size) + ')]'
-          ).join('\\n');
-          // 图片base64数据通过postMessage传递，不在文本中显示
-          text = (text ? text + '\\n\\n' : '') + imagesText;
+          const filesText = fileList.map((f, i) => {
+            const icon = f.isImage ? '🖼️' : getFileIcon(f.name);
+            return '[已上传' + icon + ' ' + (i + 1) + ': ' + f.name + ' (' + formatFileSize(f.size) + ')]';
+          }).join('\\n');
+          text = (text ? text + '\\n\\n' : '') + filesText;
         }
       }
       
-      // 传递图片和文件数据给扩展后端处理
-      const images = imageList.map(img => ({ name: img.name, base64: img.base64, size: img.size }));
-      const files = fileList.map(f => ({ name: f.name, path: f.path, ext: f.ext }));
+      // 传递文件数据给扩展后端处理
+      const images = fileList.filter(f => f.isImage).map(f => ({ name: f.name, base64: f.base64, size: f.size }));
+      const hasImage = images.length > 0;
       
-      // 附加文件路径信息到文本
-      if (fileList.length > 0) {
-        const filesText = fileList.map((f, i) => '[文件 ' + (i + 1) + ': ' + f.name + '] 路径: ' + f.path).join('\\n');
-        text = (text ? text + '\\n\\n' : '') + filesText;
-      }
-      
-      vscode.postMessage({ command: 'continue', text: text || '继续', hasImage: imageList.length > 0, imageCount: imageList.length, images: images, files: files });
+      vscode.postMessage({ command: 'continue', text: text || '继续', hasImage: hasImage, imageCount: images.length, images: images });
     }
     
     function submitEnd() {
