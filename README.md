@@ -6,7 +6,7 @@
 
 ### 让 AI 对话永不结束的 MCP 增强工具
 
-[![Version](https://img.shields.io/badge/version-1.2.5-blue.svg)](https://github.com/1837620622/Windsurf_Ask_Continue)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/1837620622/Windsurf_Ask_Continue)
 [![License](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-green.svg)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windsurf%20IDE-purple.svg)](https://windsurf.ai)
 [![Python](https://img.shields.io/badge/python-3.10+-yellow.svg)](https://python.org)
@@ -96,6 +96,19 @@
 <td>通过 MCP 协议优化对话流程，减少 Token 消耗</td>
 </tr>
 </table>
+
+---
+
+## 💡 关于模型选择
+
+> **💰 省钱小技巧：只需要一个能调用 MCP 的高级模型！**
+
+本工具通过 MCP 协议工作，因此你只需要满足以下条件之一：
+
+- **使用高级模型**（如 Claude 3.5 Sonnet 等）- 这些模型支持 MCP 工具调用
+- **切换到能调用 MCP 的模型** - 即使是免费/低成本模型，只要支持 MCP 即可
+
+**🎉 额外福利**：在 Windsurf 中切换高级模型貌似不会消耗额外的 credit/token！这意味着你可以在对话过程中随时切换到高级模型来调用 `ask_continue` 工具，而不用担心成本问题。
 
 ---
 
@@ -206,7 +219,7 @@ pip install -r requirements.txt
 1. 打开 Windsurf
 2. 按 `Ctrl+Shift+P`（Mac: `Cmd+Shift+P`）打开命令面板
 3. 输入 `Extensions: Install from VSIX`
-4. 选择项目目录下的 `windsurf-ask-continue-1.2.5.vsix` 文件
+4. 选择项目目录下的 `windsurf-ask-continue-1.3.0.vsix` 文件
 
 #### 步骤 3：配置 MCP
 
@@ -275,6 +288,7 @@ pip install -r requirements.txt
 - 🎨 **文件预览优化** - 非图片文件显示图标和文件名预览
 - 📊 **智能计数显示** - 区分显示图片和文件数量统计
 - 💻 **多文件类型支持** - 支持代码、文档、压缩包等各种文件格式
+- 📝 **文件路径传递** - 拖拽文件自动附加完整路径供AI读取
 
 ### v1.2.5 (2025-12-19)
 - ✨ **新增多文件上传** - 支持图片、PDF、文档、代码等多种文件类型
@@ -307,7 +321,7 @@ pip install -r requirements.txt
 ├── vscode-extension/        # Windsurf 扩展源码（TypeScript）
 ├── rules/                   # 规则模板
 │   └── example-windsurfrules.txt
-└── windsurf-ask-continue-1.2.5.vsix  # 打包好的扩展（v1.2.5）
+└── windsurf-ask-continue-1.3.0.vsix  # 打包好的扩展（v1.3.0）
 ```
 
 ---
