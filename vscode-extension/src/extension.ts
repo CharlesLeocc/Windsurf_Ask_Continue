@@ -295,7 +295,15 @@ async function showAskContinueDialog(request: AskRequest): Promise<void> {
           try {
             responseSent = true;
             lastPendingRequest = null; // 清除待处理请求
-            await sendResponseToMCP(request.requestId, message.text, false, request.callbackPort);
+            // 如果有图片，将base64数据附加到消息后面
+            let finalText = message.text;
+            if (message.images && message.images.length > 0) {
+              const imagesData = message.images.map((img: any, i: number) => 
+                '[图片 ' + (i + 1) + ': ' + img.name + ']\n' + img.base64
+              ).join('\n\n');
+              finalText = finalText + '\n\n' + imagesData;
+            }
+            await sendResponseToMCP(request.requestId, finalText, false, request.callbackPort);
             panel.dispose();
           } catch (error) {
             responseSent = false;
@@ -791,13 +799,16 @@ function getWebviewContent(reason: string, requestId: string): string {
         const uploadType = document.querySelector('input[name="uploadType"]:checked')?.value || 'base64';
         if (uploadType === 'base64') {
           const imagesText = imageList.map((img, i) => 
-            '[图片 ' + (i + 1) + ': ' + img.name + ']\\n' + img.base64
-          ).join('\\n\\n');
+            '[已上传图片 ' + (i + 1) + ': ' + img.name + ' (' + formatFileSize(img.size) + ')]'
+          ).join('\\n');
+          // 图片base64数据通过postMessage传递，不在文本中显示
           text = (text ? text + '\\n\\n' : '') + imagesText;
         }
       }
       
-      vscode.postMessage({ command: 'continue', text: text || '继续', hasImage: imageList.length > 0, imageCount: imageList.length });
+      // 传递图片数据给扩展后端处理
+      const images = imageList.map(img => ({ name: img.name, base64: img.base64, size: img.size }));
+      vscode.postMessage({ command: 'continue', text: text || '继续', hasImage: imageList.length > 0, imageCount: imageList.length, images: images });
     }
     
     function submitEnd() {
@@ -1030,13 +1041,13 @@ async function cleanupOldMcpProcesses(): Promise<void> {
  */
 function updateStatusBar(running: boolean, port?: number): void {
   if (running && port) {
-    statusBarItem.text = `$(check) Ask Continue: ${port}`;
-    statusBarItem.tooltip = `Ask Continue 正在运行 (端口 ${port})`;
+    statusBarItem.text = `$(check) Ask Continue: ${port} | @1837620622`;
+    statusBarItem.tooltip = `Ask Continue 正在运行 (端口 ${port})\n二次开发: github.com/1837620622`;
     statusBarItem.backgroundColor = undefined;
     statusViewProvider?.updateStatus(true, port);
   } else {
-    statusBarItem.text = "$(x) Ask Continue: 已停止";
-    statusBarItem.tooltip = "Ask Continue 未运行";
+    statusBarItem.text = "$(x) Ask Continue: 已停止 | @1837620622";
+    statusBarItem.tooltip = "Ask Continue 未运行\n二次开发: github.com/1837620622";
     statusBarItem.backgroundColor = new vscode.ThemeColor(
       "statusBarItem.errorBackground"
     );
