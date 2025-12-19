@@ -295,14 +295,24 @@ async function showAskContinueDialog(request: AskRequest): Promise<void> {
           try {
             responseSent = true;
             lastPendingRequest = null; // 清除待处理请求
-            // 如果有图片，将base64数据附加到消息后面
             let finalText = message.text;
-            if (message.images && message.images.length > 0) {
+            
+            // 处理图片：附加 base64 数据（仅在非"仅路径"模式）
+            if (message.images && message.images.length > 0 && message.uploadType !== 'path') {
               const imagesData = message.images.map((img: any, i: number) => 
                 '[图片 ' + (i + 1) + ': ' + img.name + ']\n' + img.base64
               ).join('\n\n');
               finalText = finalText + '\n\n' + imagesData;
             }
+            
+            // 处理非图片文件：附加文件路径信息
+            if (message.files && message.files.length > 0) {
+              const filesData = message.files.map((f: any, i: number) => 
+                '[文件 ' + (i + 1) + ': ' + f.name + ']' + (f.path ? '\n路径: ' + f.path : '')
+              ).join('\n\n');
+              finalText = finalText + '\n\n' + filesData;
+            }
+            
             await sendResponseToMCP(request.requestId, finalText, false, request.callbackPort);
             panel.dispose();
           } catch (error) {
@@ -1365,24 +1375,35 @@ function getWebviewContent(reason: string, requestId: string): string {
     
     function submitContinue() {
       let text = textarea.value.trim();
+      const uploadType = document.querySelector('input[name="uploadType"]:checked')?.value || 'base64';
       
       // 如果有文件，将所有文件信息附加到消息中
       if (fileList.length > 0) {
-        const uploadType = document.querySelector('input[name="uploadType"]:checked')?.value || 'base64';
-        if (uploadType === 'base64') {
-          const filesText = fileList.map((f, i) => {
-            const icon = f.isImage ? '🖼️' : getFileIcon(f.name);
+        const filesText = fileList.map((f, i) => {
+          const icon = f.isImage ? '🖼️' : getFileIcon(f.name);
+          if (uploadType === 'path' && f.path) {
+            // 仅路径模式：显示文件路径
+            return '[已上传' + icon + ' ' + (i + 1) + ': ' + f.name + ']\\n路径: ' + f.path;
+          } else {
             return '[已上传' + icon + ' ' + (i + 1) + ': ' + f.name + ' (' + formatFileSize(f.size) + ')]';
-          }).join('\\n');
-          text = (text ? text + '\\n\\n' : '') + filesText;
-        }
+          }
+        }).join('\\n');
+        text = (text ? text + '\\n\\n' : '') + filesText;
       }
       
       // 传递文件数据给扩展后端处理
-      const images = fileList.filter(f => f.isImage).map(f => ({ name: f.name, base64: f.base64, size: f.size }));
-      const hasImage = images.length > 0;
+      const images = fileList.filter(f => f.isImage).map(f => ({ name: f.name, base64: f.base64, size: f.size, path: f.path }));
+      const files = fileList.filter(f => !f.isImage).map(f => ({ name: f.name, path: f.path, size: f.size }));
       
-      vscode.postMessage({ command: 'continue', text: text || '继续', hasImage: hasImage, imageCount: images.length, images: images });
+      vscode.postMessage({ 
+        command: 'continue', 
+        text: text || '继续', 
+        hasImage: images.length > 0, 
+        imageCount: images.length, 
+        images: images,
+        files: files,
+        uploadType: uploadType
+      });
     }
     
     function submitEnd() {
