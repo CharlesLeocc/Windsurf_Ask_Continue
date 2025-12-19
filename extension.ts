@@ -487,7 +487,7 @@ function getWebviewContent(reason: string, requestId: string): string {
     /* ========== 状态标签 ========== */
     .status-badge {
       position: absolute;
-      right: 0;
+      right: 50px;
       top: 50%;
       transform: translateY(-50%);
       background: linear-gradient(135deg, #f59e0b, #f97316);
@@ -506,6 +506,41 @@ function getWebviewContent(reason: string, requestId: string): string {
     @keyframes badge-pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.8; }
+    }
+    
+    /* ========== 语言切换按钮 ========== */
+    .lang-switch {
+      position: absolute;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #a5b4fc;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .lang-switch:hover {
+      background: rgba(99, 102, 241, 0.3);
+      border-color: rgba(99, 102, 241, 0.5);
+    }
+    
+    .lang-switch #langIcon {
+      font-size: 12px;
+    }
+    
+    /* ========== 快捷键行 ========== */
+    .shortcut-row {
+      display: block;
+      margin: 2px 0;
     }
     
     /* ========== 原因卡片 ========== */
@@ -936,33 +971,37 @@ function getWebviewContent(reason: string, requestId: string): string {
     <div class="header">
       <div class="logo">🤖</div>
       <div class="header-text">
-        <h1>Ask Continue</h1>
-        <div class="subtitle">智能对话助手</div>
+        <h1 data-zh="Windsurf 对话增强" data-en="Windsurf Dialogue+">Windsurf 对话增强</h1>
+        <div class="subtitle" data-zh="智能对话助手" data-en="Smart Dialogue Assistant">智能对话助手</div>
       </div>
-      <div class="status-badge">
+      <div class="status-badge" data-zh="待处理" data-en="Pending">
         <span>⚡</span>
         <span>待处理</span>
       </div>
+      <button class="lang-switch" id="langSwitch" title="切换语言 / Switch Language">
+        <span id="langIcon">🌐</span>
+        <span id="langText">EN</span>
+      </button>
     </div>
     
     <!-- AI原因卡片 -->
     <div class="reason-card">
       <div class="reason-header">
         <span class="reason-icon">💬</span>
-        <span class="reason-label">AI 工作进度</span>
+        <span class="reason-label" data-zh="AI 工作进度" data-en="AI Progress">AI 工作进度</span>
       </div>
-      <div class="reason-text">\${escapeHtml(reason)}</div>
+      <div class="reason-text">${escapeHtml(reason)}</div>
     </div>
     
     <!-- 输入区域 -->
     <div class="input-section">
       <label class="input-label">
         <span class="icon">✏️</span>
-        如需继续，请输入新的指令 <span class="optional">(可选)</span>
+        <span data-zh="如需继续，请输入新的指令" data-en="Enter new instruction to continue">如需继续，请输入新的指令</span> <span class="optional" data-zh="(可选)" data-en="(Optional)">(可选)</span>
       </label>
       <textarea 
         id="userInput" 
-        placeholder="输入你的下一个指令..."
+        placeholder="输入你的下一个指令... / Enter your next instruction..."
         autofocus
       ></textarea>
     </div>
@@ -972,25 +1011,25 @@ function getWebviewContent(reason: string, requestId: string): string {
       <div class="upload-header">
         <div class="upload-title">
           <span>📎</span>
-          <span>上传文件 (可选)</span>
+          <span data-zh="上传文件 (可选)" data-en="Upload Files (Optional)">上传文件 (可选)</span>
         </div>
         <div class="upload-options">
-          <label><input type="radio" name="uploadType" value="base64" checked> 文件内容</label>
-          <label><input type="radio" name="uploadType" value="path"> 仅路径</label>
+          <label><input type="radio" name="uploadType" value="base64" checked> <span data-zh="文件内容" data-en="Content">文件内容</span></label>
+          <label><input type="radio" name="uploadType" value="path"> <span data-zh="仅路径" data-en="Path Only">仅路径</span></label>
         </div>
       </div>
       <input type="file" id="fileInput" multiple style="display: none;" />
       <div class="drop-zone" id="dropZone">
         <div id="dropText" class="drop-text">
-          <span class="kbd"><span id="pasteKey">Ctrl</span>+V</span> 粘贴 &nbsp;|&nbsp; 拖拽文件 &nbsp;|&nbsp; <a href="#" id="selectFiles" class="highlight">点击选择</a>
-          <div class="drop-hint">支持从左侧文件资源管理器直接拖拽</div>
+          <span class="kbd"><span id="pasteKey">Ctrl</span>+V</span> <span data-zh="粘贴" data-en="Paste">粘贴</span> &nbsp;|&nbsp; <span data-zh="拖拽文件" data-en="Drag & Drop">拖拽文件</span> &nbsp;|&nbsp; <a href="#" id="selectFiles" class="highlight" data-zh="点击选择" data-en="Click to Select">点击选择</a>
+          <div class="drop-hint" data-zh="支持从左侧文件资源管理器直接拖拽" data-en="Supports dragging from file explorer">支持从左侧文件资源管理器直接拖拽</div>
         </div>
         <div id="filePreviewContainer" style="display: none;">
           <div class="files-grid" id="filesGrid"></div>
           <div class="files-info" id="filesInfo"></div>
           <button type="button" class="clear-all-btn" id="clearAllBtn">
             <span>🗑️</span>
-            <span>清空全部</span>
+            <span data-zh="清空全部" data-en="Clear All">清空全部</span>
           </button>
         </div>
       </div>
@@ -1000,25 +1039,26 @@ function getWebviewContent(reason: string, requestId: string): string {
     <div class="button-group">
       <button class="btn btn-primary" id="continueBtn">
         <span>🚀</span>
-        <span>继续执行</span>
+        <span data-zh="继续执行" data-en="Continue">继续执行</span>
       </button>
       <button class="btn btn-secondary" id="endBtn">
         <span>⭕</span>
-        <span>结束对话</span>
+        <span data-zh="结束对话" data-en="End">结束对话</span>
       </button>
     </div>
     
     <!-- 快捷键提示 -->
     <div class="shortcuts">
-      快捷键: <kbd>Enter</kbd> 继续 &nbsp;|&nbsp; <kbd>Shift+Enter</kbd> 换行 &nbsp;|&nbsp; <kbd>Esc</kbd> 结束
+      <span class="shortcut-row" id="shortcutWin"><b>Win:</b> <kbd>Enter</kbd> <span data-zh="继续" data-en="Continue">继续</span> | <kbd>Shift+Enter</kbd> <span data-zh="换行" data-en="Newline">换行</span> | <kbd>Esc</kbd> <span data-zh="结束" data-en="End">结束</span> | <kbd>Ctrl+V</kbd> <span data-zh="粘贴" data-en="Paste">粘贴</span></span>
+      <span class="shortcut-row" id="shortcutMac"><b>Mac:</b> <kbd>Enter</kbd> <span data-zh="继续" data-en="Continue">继续</span> | <kbd>Shift+Enter</kbd> <span data-zh="换行" data-en="Newline">换行</span> | <kbd>Esc</kbd> <span data-zh="结束" data-en="End">结束</span> | <kbd>⌘+V</kbd> <span data-zh="粘贴" data-en="Paste">粘贴</span></span>
     </div>
     
     <!-- 页脚 -->
     <div class="footer">
       <div class="footer-text">
-        二次开发 by <a href="https://github.com/1837620622" target="_blank">@1837620622</a>
+        二次开发 by <a href="https://github.com/1837620622" target="_blank">传康KK</a>
       </div>
-      <div class="footer-star">如果觉得好用，请给个 ⭐ Star</div>
+      <div class="footer-star" data-zh="如果觉得好用，请给个 ⭐ Star" data-en="If helpful, please give a ⭐ Star">如果觉得好用，请给个 ⭐ Star</div>
     </div>
   </div>
   
@@ -1056,11 +1096,35 @@ function getWebviewContent(reason: string, requestId: string): string {
       fileInput.value = ''; // 清空以便重复选择
     });
     
-    // 检测Mac系统，更新快捷键提示
+    // 检测Mac系统，更新快捷键提示显示
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0 || navigator.userAgent.toUpperCase().indexOf('MAC') >= 0;
+    const shortcutWin = document.getElementById('shortcutWin');
+    const shortcutMac = document.getElementById('shortcutMac');
     if (isMac) {
       document.getElementById('pasteKey').textContent = '⌘';
+      shortcutWin.style.display = 'none';
+      shortcutMac.style.display = 'block';
+    } else {
+      shortcutWin.style.display = 'block';
+      shortcutMac.style.display = 'none';
     }
+    
+    // ========== 语言切换功能 ==========
+    let currentLang = 'zh';
+    const langSwitch = document.getElementById('langSwitch');
+    const langText = document.getElementById('langText');
+    
+    function switchLanguage() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      langText.textContent = currentLang === 'zh' ? 'EN' : '中';
+      
+      // 更新所有带有 data-zh 和 data-en 属性的元素
+      document.querySelectorAll('[data-zh][data-en]').forEach(el => {
+        el.textContent = el.getAttribute('data-' + currentLang);
+      });
+    }
+    
+    langSwitch.addEventListener('click', switchLanguage);
     
     // Focus textarea on load
     textarea.focus();

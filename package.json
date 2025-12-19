@@ -1,8 +1,8 @@
 {
   "name": "windsurf-ask-continue",
-  "displayName": "Windsurf Ask Continue",
-  "description": "让 AI 对话永不结束 - 仅支持 Windsurf IDE | 二次开发: @1837620622",
-  "version": "1.3.0",
+  "displayName": "Windsurf 对话增强工具",
+  "description": "Windsurf 对话增强工具 - 让 AI 对话永不结束 | 二次开发: 传康KK",
+  "version": "1.3.1",
   "publisher": "Rhongomiant1227",
   "author": {
     "name": "Rhongomiant1227 & 1837620622",

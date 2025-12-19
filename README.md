@@ -1,12 +1,12 @@
 <div align="center">
 
-# 🚀 Windsurf Ask Continue
+# 🚀 Windsurf 对话增强工具
 
 ![项目主图](test1.png)
 
-### 让 AI 对话永不结束的 MCP 增强工具
+### Windsurf Dialogue+ - 让 AI 对话永不结束
 
-[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/1837620622/Windsurf_Ask_Continue)
+[![Version](https://img.shields.io/badge/version-1.3.1-blue.svg)](https://github.com/1837620622/Windsurf_Ask_Continue)
 [![License](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-green.svg)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windsurf%20IDE-purple.svg)](https://windsurf.ai)
 [![Python](https://img.shields.io/badge/python-3.10+-yellow.svg)](https://python.org)
@@ -219,7 +219,7 @@ pip install -r requirements.txt
 1. 打开 Windsurf
 2. 按 `Ctrl+Shift+P`（Mac: `Cmd+Shift+P`）打开命令面板
 3. 输入 `Extensions: Install from VSIX`
-4. 选择项目目录下的 `windsurf-ask-continue-1.3.0.vsix` 文件
+4. 选择项目目录下的 `windsurf-ask-continue-1.3.1.vsix` 文件
 
 #### 步骤 3：配置 MCP
 
@@ -281,6 +281,13 @@ pip install -r requirements.txt
 
 ## 📝 更新日志
 
+### v1.3.1 (2025-12-19)
+- 🌐 **中英文切换** - 右上角新增语言切换按钮，支持中文/英文界面
+- ⌨️ **快捷键优化** - 区分显示 Win/Mac 快捷键，根据系统自动适配
+- 🎯 **标题更新** - 统一为「Windsurf 对话增强工具」
+- 👨‍💻 **水印更新** - 二次开发者水印改为传康KK
+- 🐛 **修复乱码** - 修复 AI 工作进度显示乱码问题
+
 ### v1.3.0 (2025-12-19)
 - 🚀 **文件资源管理器拖拽** - 支持从左侧文件资源管理器直接拖拽文件上传
 - 📁 **智能文件识别** - 自动识别文件类型并显示对应图标
@@ -321,7 +328,7 @@ pip install -r requirements.txt
 ├── vscode-extension/        # Windsurf 扩展源码（TypeScript）
 ├── rules/                   # 规则模板
 │   └── example-windsurfrules.txt
-└── windsurf-ask-continue-1.3.0.vsix  # 打包好的扩展（v1.3.0）
+└── windsurf-ask-continue-1.3.1.vsix  # 打包好的扩展（v1.3.1）
 ```
 
 ---
