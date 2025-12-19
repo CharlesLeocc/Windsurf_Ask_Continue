@@ -984,13 +984,16 @@ function getWebviewContent(reason: string, requestId: string): string {
       </button>
     </div>
     
-    <!-- AI原因卡片 -->
+    <!-- 公告卡片 -->
     <div class="reason-card">
       <div class="reason-header">
-        <span class="reason-icon">💬</span>
-        <span class="reason-label" data-zh="AI 工作进度" data-en="AI Progress">AI 工作进度</span>
+        <span class="reason-icon">📢</span>
+        <span class="reason-label" data-zh="公告 · v1.3.1" data-en="Announcement · v1.3.1">公告 · v1.3.1</span>
       </div>
-      <div class="reason-text">${escapeHtml(reason)}</div>
+      <div class="reason-text">
+        <div data-zh="🌐 新增中英文切换 | ⌨️ Win/Mac快捷键适配 | 🐛 修复乱码问题" data-en="🌐 Language Switch | ⌨️ Win/Mac Shortcuts | 🐛 Bug Fixes">🌐 新增中英文切换 | ⌨️ Win/Mac快捷键适配 | 🐛 修复乱码问题</div>
+        <div style="margin-top: 8px; font-size: 12px; color: #6b7280;" data-zh="GitHub: github.com/1837620622 · 二次开发: 传康KK" data-en="GitHub: github.com/1837620622 · Dev: ChuanKang KK">GitHub: github.com/1837620622 · 二次开发: 传康KK</div>
+      </div>
     </div>
     
     <!-- 输入区域 -->
