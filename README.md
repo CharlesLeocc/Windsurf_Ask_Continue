@@ -196,12 +196,24 @@ Windsurf 启动时会：
 
 ### 方式一：一键安装（推荐）
 
+#### Windows 用户
 1. 双击运行 `install.bat`
 2. 按提示手动安装 VSIX 扩展（会自动打开文件位置）
 3. **重启 Windsurf**（非常重要！）
 4. 完成！
 
-> 💡 **更新时**：再次运行 `install.bat` 即可自动更新全局规则文件（旧文件会备份为 `.windsurfrules.backup`）
+#### Mac/Linux 用户
+1. 打开终端，进入项目目录
+2. 运行安装脚本：
+   ```bash
+   chmod +x install.sh  # 首次需要添加执行权限
+   ./install.sh
+   ```
+3. 按提示手动安装 VSIX 扩展
+4. **重启 Windsurf**（非常重要！）
+5. 完成！
+
+> 💡 **更新时**：再次运行 `install.bat`（Windows）或 `./install.sh`（Mac/Linux）即可自动更新全局规则文件（旧文件会备份为 `.windsurfrules.backup`）
 
 ### 方式二：手动安装
 
@@ -321,14 +333,17 @@ pip install -r requirements.txt
 
 ```
 ├── install.bat              # 一键安装脚本（Windows）
+├── install.sh               # 一键安装脚本（Mac/Linux）
 ├── uninstall.bat            # 卸载脚本（Windows）
+├── .github/workflows/       # GitHub Actions 自动化
+│   └── release.yml          # 自动打包并发布 Release
 ├── mcp-server-python/       # MCP 服务器（Python）
 │   ├── server.py            # 主程序
 │   └── requirements.txt     # Python 依赖
 ├── vscode-extension/        # Windsurf 扩展源码（TypeScript）
 ├── rules/                   # 规则模板
 │   └── example-windsurfrules.txt
-└── windsurf-ask-continue-1.3.1.vsix  # 打包好的扩展（v1.3.1）
+└── windsurf-ask-continue-*.vsix  # 打包好的扩展
 ```
 
 ---
