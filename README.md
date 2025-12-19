@@ -2,6 +2,8 @@
 
 # 🚀 Windsurf Ask Continue
 
+![项目主图](test1.png)
+
 ### 让 AI 对话永不结束的 MCP 增强工具
 
 [![Version](https://img.shields.io/badge/version-1.2.5-blue.svg)](https://github.com/1837620622/Windsurf_Ask_Continue)
