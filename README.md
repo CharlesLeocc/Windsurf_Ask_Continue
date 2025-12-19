@@ -4,13 +4,13 @@
 
 ### 让 AI 对话永不结束的 MCP 增强工具
 
-[![Version](https://img.shields.io/badge/version-1.2.4-blue.svg)](https://github.com/1837620622/Windsurf_Ask_Continue)
+[![Version](https://img.shields.io/badge/version-1.2.5-blue.svg)](https://github.com/1837620622/Windsurf_Ask_Continue)
 [![License](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-green.svg)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windsurf%20IDE-purple.svg)](https://windsurf.ai)
 [![Python](https://img.shields.io/badge/python-3.10+-yellow.svg)](https://python.org)
 
 <p align="center">
-  <strong>🔥 突破 Token 限制 | 🖼️ 多图片上传 | 🌍 跨平台支持</strong>
+  <strong>🔥 突破 Token 限制 | 📎 多文件上传 | 🌍 跨平台支持</strong>
 </p>
 
 > ⚠️ **仅支持 Windsurf IDE**，不支持 VS Code、Cursor 等其他编辑器
@@ -69,9 +69,9 @@
 <td>AI 完成任务后自动弹窗询问是否继续，突破单次对话限制</td>
 </tr>
 <tr>
-<td align="center">📷</td>
-<td><strong>多图片上传</strong></td>
-<td>支持同时上传多张图片（拖拽/粘贴），自动适配 Mac/Windows</td>
+<td align="center">📎</td>
+<td><strong>多文件上传</strong></td>
+<td>支持图片、PDF、文档、代码等多种文件类型（拖拽/粘贴/点击选择）</td>
 </tr>
 <tr>
 <td align="center">⌨️</td>
@@ -80,8 +80,8 @@
 </tr>
 <tr>
 <td align="center">🗑️</td>
-<td><strong>图片管理</strong></td>
-<td>支持单独删除或一键清空已上传图片</td>
+<td><strong>文件管理</strong></td>
+<td>支持单独删除或一键清空已上传文件</td>
 </tr>
 <tr>
 <td align="center">🌍</td>
@@ -204,7 +204,7 @@ pip install -r requirements.txt
 1. 打开 Windsurf
 2. 按 `Ctrl+Shift+P`（Mac: `Cmd+Shift+P`）打开命令面板
 3. 输入 `Extensions: Install from VSIX`
-4. 选择项目目录下的 `windsurf-ask-continue-1.2.4.vsix` 文件
+4. 选择项目目录下的 `windsurf-ask-continue-1.2.5.vsix` 文件
 
 #### 步骤 3：配置 MCP
 
@@ -258,7 +258,29 @@ pip install -r requirements.txt
 
 ---
 
-## 📁 项目结构
+## � 更新日志
+
+### v1.2.5 (2025-12-19)
+- ✨ **新增多文件上传** - 支持图片、PDF、文档、代码等多种文件类型
+- 🖱️ **文件选择器** - 新增"点击选择"按钮，方便选择本地文件
+- 🎨 **界面美化** - 全新渐变色设计，更现代的UI体验
+- 📁 **文件图标** - 不同类型文件显示对应图标（📄PDF、📝文档、💻代码等）
+- 🔧 **跨平台优化** - 修复Mac/Linux端口占用检测问题
+- 🚀 **按钮动效** - 添加悬浮阴影和过渡动画
+
+### v1.2.4
+- 🖼️ 多图片上传支持
+- ⌨️ Mac快捷键适配（⌘+V）
+- 🏷️ 二次开发者水印
+
+### v1.2.0 - v1.2.3
+- 🔄 无限对话核心功能
+- 📋 剪贴板粘贴支持
+- 🖱️ 拖拽上传支持
+
+---
+
+## �📁 项目结构
 
 ```
 ├── install.bat              # 一键安装脚本（Windows）
@@ -269,7 +291,7 @@ pip install -r requirements.txt
 ├── vscode-extension/        # Windsurf 扩展源码（TypeScript）
 ├── rules/                   # 规则模板
 │   └── example-windsurfrules.txt
-└── windsurf-ask-continue-1.2.4.vsix  # 打包好的扩展（v1.2.4）
+└── windsurf-ask-continue-1.2.5.vsix  # 打包好的扩展（v1.2.5）
 ```
 
 ---
