@@ -786,7 +786,7 @@ function getWebviewContent(reason: string, requestId: string): string {
     function submitContinue() {
       let text = textarea.value.trim();
       
-      // 如果有图片，将所有图片附加到消息中
+      // 如果有图片，将所有图片以Markdown格式附加到消息中（便于AI识别和显示）
       if (imageList.length > 0) {
         const uploadType = document.querySelector('input[name="uploadType"]:checked')?.value || 'base64';
         if (uploadType === 'base64') {
