@@ -26,6 +26,54 @@ DEFAULT_EXTENSION_PORT = 23983  # VS Code 扩展默认监听的端口
 CALLBACK_PORT_START = 23984   # 回调端口起始值
 PORT_FILE_DIR = os.path.join(tempfile.gettempdir(), "ask-continue-ports")
 
+
+def kill_process_on_port(port: int) -> bool:
+    """
+    强制杀死占用指定端口的进程
+    返回: 是否成功释放端口
+    """
+    import subprocess
+    import platform
+    
+    system = platform.system()
+    
+    try:
+        if system == "Darwin" or system == "Linux":
+            # Mac/Linux: 使用 lsof 查找进程并杀死
+            result = subprocess.run(
+                ["lsof", "-t", "-i", f":{port}"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    if pid:
+                        subprocess.run(["kill", "-9", pid], timeout=5)
+                        print(f"[MCP] 已杀死占用端口 {port} 的进程 (PID: {pid})", file=sys.stderr)
+                return True
+        elif system == "Windows":
+            # Windows: 使用 netstat 查找并 taskkill 杀死
+            result = subprocess.run(
+                ["netstat", "-ano", "-p", "tcp"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            for line in result.stdout.split('\n'):
+                if f":{port}" in line and "LISTENING" in line:
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        pid = parts[-1]
+                        subprocess.run(["taskkill", "/F", "/PID", pid], timeout=5)
+                        print(f"[MCP] 已杀死占用端口 {port} 的进程 (PID: {pid})", file=sys.stderr)
+                        return True
+    except Exception as e:
+        print(f"[MCP] 释放端口 {port} 失败: {e}", file=sys.stderr)
+    
+    return False
+
 # 当前回调端口（动态分配）
 current_callback_port = CALLBACK_PORT_START
 # 回调服务器就绪事件
@@ -91,10 +139,11 @@ class CallbackHandler(BaseHTTPRequestHandler):
 
 
 def start_callback_server():
-    """启动回调服务器"""
+    """启动回调服务器（带强制端口释放）"""
     global current_callback_port
     port = CALLBACK_PORT_START
     max_retries = 50  # 增加重试次数支持更多并发窗口
+    force_kill_attempted = False  # 是否已尝试强制杀死
     
     for i in range(max_retries):
         try:
@@ -107,8 +156,17 @@ def start_callback_server():
         except OSError as e:
             # 端口被占用: Windows=10048, Mac/Linux=48或98
             if e.errno in (10048, 48, 98):
+                # 首次尝试时强制释放端口
+                if not force_kill_attempted and i < 3:
+                    print(f"[MCP] 端口 {port} 被占用，尝试强制释放...", file=sys.stderr)
+                    if kill_process_on_port(port):
+                        force_kill_attempted = True
+                        time.sleep(0.5)  # 等待端口释放
+                        continue  # 重试同一端口
+                
                 print(f"[MCP] 端口 {port} 被占用，尝试 {port + 1}", file=sys.stderr)
                 port += 1
+                force_kill_attempted = False  # 重置标志
             else:
                 print(f"[MCP] 回调服务器错误: {e}", file=sys.stderr)
                 callback_server_ready.set()  # 即使失败也要通知

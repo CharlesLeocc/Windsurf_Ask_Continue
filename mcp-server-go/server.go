@@ -15,7 +15,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,6 +59,57 @@ func init() {
 }
 
 // ============================================================
+// 强制杀死占用端口的进程
+// ============================================================
+func killProcessOnPort(port int) bool {
+	switch runtime.GOOS {
+	case "darwin", "linux":
+		// Mac/Linux: 使用 lsof 查找进程并杀死
+		cmd := exec.Command("lsof", "-t", "-i", fmt.Sprintf(":%d", port))
+		output, err := cmd.Output()
+		if err != nil {
+			return false
+		}
+
+		pids := strings.Split(strings.TrimSpace(string(output)), "\n")
+		for _, pid := range pids {
+			if pid != "" {
+				killCmd := exec.Command("kill", "-9", pid)
+				if err := killCmd.Run(); err == nil {
+					logger.Printf("已杀死占用端口 %d 的进程 (PID: %s)", port, pid)
+				}
+			}
+		}
+		return len(pids) > 0 && pids[0] != ""
+
+	case "windows":
+		// Windows: 使用 netstat 查找并 taskkill 杀死
+		cmd := exec.Command("netstat", "-ano", "-p", "tcp")
+		output, err := cmd.Output()
+		if err != nil {
+			return false
+		}
+
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, fmt.Sprintf(":%d", port)) && strings.Contains(line, "LISTENING") {
+				parts := strings.Fields(line)
+				if len(parts) >= 5 {
+					pid := parts[len(parts)-1]
+					killCmd := exec.Command("taskkill", "/F", "/PID", pid)
+					if err := killCmd.Run(); err == nil {
+						logger.Printf("已杀死占用端口 %d 的进程 (PID: %s)", port, pid)
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+// ============================================================
 // 响应数据结构
 // ============================================================
 type CallbackResponse struct {
@@ -78,17 +132,29 @@ type ExtensionResponse struct {
 }
 
 // ============================================================
-// 回调服务器
+// 回调服务器（带强制端口释放）
 // ============================================================
 func startCallbackServer() int {
 	port := CallbackPortStart
 	maxRetries := 50
+	forceKillAttempted := false // 是否已尝试强制杀死
 
 	for i := 0; i < maxRetries; i++ {
 		listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 		if err != nil {
+			// 首次尝试时强制释放端口
+			if !forceKillAttempted && i < 3 {
+				logger.Printf("端口 %d 被占用，尝试强制释放...", port)
+				if killProcessOnPort(port) {
+					forceKillAttempted = true
+					time.Sleep(500 * time.Millisecond) // 等待端口释放
+					continue                          // 重试同一端口
+				}
+			}
+
 			logger.Printf("端口 %d 被占用，尝试 %d", port, port+1)
 			port++
+			forceKillAttempted = false // 重置标志
 			continue
 		}
 
