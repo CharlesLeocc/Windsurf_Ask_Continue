@@ -108,28 +108,42 @@ fi
 echo ""
 echo -e "${YELLOW}[3/5]${NC} 配置 MCP..."
 
-# MCP 配置文件路径
+# MCP 安装目录（统一放在 ~/Documents/mcp）
+MCP_INSTALL_DIR="$HOME/Documents/mcp"
 WINDSURF_MCP_DIR="$HOME/.codeium/windsurf"
 WINDSURF_MCP_FILE="$WINDSURF_MCP_DIR/mcp_config.json"
-PYTHON_SERVER_PATH="$SCRIPT_DIR/mcp-server-python/server.py"
-GO_SERVER_PATH="$SCRIPT_DIR/mcp-server-go/ask-continue-mcp"
-LAUNCHER_PATH="$SCRIPT_DIR/mcp-server-go/mcp-launcher.sh"
 
-# 创建目录
+# 创建安装目录
+mkdir -p "$MCP_INSTALL_DIR"
 mkdir -p "$WINDSURF_MCP_DIR"
 
-# 确保启动器脚本有执行权限
-if [ -f "$LAUNCHER_PATH" ]; then
-    chmod +x "$LAUNCHER_PATH"
-    echo -e "${GREEN}[OK]${NC} 启动器脚本已就绪（Go 优先，Python 备选，自动重试）"
+# 复制文件到安装目录
+echo -e "${BLUE}[复制]${NC} 正在复制 MCP 服务到 $MCP_INSTALL_DIR ..."
+
+# 复制 Go 版本
+if [ -f "$SCRIPT_DIR/mcp-server-go/ask-continue-mcp" ]; then
+    cp "$SCRIPT_DIR/mcp-server-go/ask-continue-mcp" "$MCP_INSTALL_DIR/"
+    chmod +x "$MCP_INSTALL_DIR/ask-continue-mcp"
+    echo -e "${GREEN}[OK]${NC} Go 版本已复制"
 fi
 
-# 使用统一启动器（内置容错和重试机制）
-PRIMARY_CMD="$LAUNCHER_PATH"
-PRIMARY_ARGS="[]"
-BACKEND_NAME="智能启动器"
+# 复制启动器脚本
+if [ -f "$SCRIPT_DIR/mcp-server-go/mcp-launcher.sh" ]; then
+    cp "$SCRIPT_DIR/mcp-server-go/mcp-launcher.sh" "$MCP_INSTALL_DIR/"
+    chmod +x "$MCP_INSTALL_DIR/mcp-launcher.sh"
+    echo -e "${GREEN}[OK]${NC} 启动器脚本已复制"
+fi
 
-echo -e "${BLUE}[选择]${NC} 使用 $BACKEND_NAME（Go 优先 → Python 备选 → 5次重试）"
+# 复制 Python 版本
+if [ -d "$SCRIPT_DIR/mcp-server-python" ]; then
+    cp -r "$SCRIPT_DIR/mcp-server-python" "$MCP_INSTALL_DIR/"
+    echo -e "${GREEN}[OK]${NC} Python 版本已复制"
+fi
+
+# 启动器路径（使用安装目录）
+LAUNCHER_PATH="$MCP_INSTALL_DIR/mcp-launcher.sh"
+
+echo -e "${BLUE}[选择]${NC} 使用智能启动器（Go 优先 → Python 备选 → 5次重试）"
 
 # 备份旧配置
 if [ -f "$WINDSURF_MCP_FILE" ]; then
