@@ -113,25 +113,23 @@ WINDSURF_MCP_DIR="$HOME/.codeium/windsurf"
 WINDSURF_MCP_FILE="$WINDSURF_MCP_DIR/mcp_config.json"
 PYTHON_SERVER_PATH="$SCRIPT_DIR/mcp-server-python/server.py"
 GO_SERVER_PATH="$SCRIPT_DIR/mcp-server-go/ask-continue-mcp"
+LAUNCHER_PATH="$SCRIPT_DIR/mcp-launcher.sh"
 
 # 创建目录
 mkdir -p "$WINDSURF_MCP_DIR"
 
-# 确定使用哪个后端（优先使用 Go，连接更稳定）
-if [ "$USE_GO" = true ] && [ -f "$GO_SERVER_PATH" ]; then
-    PRIMARY_CMD="$GO_SERVER_PATH"
-    PRIMARY_ARGS="[]"
-    BACKEND_NAME="Go"
-elif [ "$USE_PYTHON" = true ]; then
-    PRIMARY_CMD="$PYTHON_CMD"
-    PRIMARY_ARGS="[\"$PYTHON_SERVER_PATH\"]"
-    BACKEND_NAME="Python"
-else
-    echo -e "${RED}[错误]${NC} 无可用后端"
-    exit 1
+# 确保启动器脚本有执行权限
+if [ -f "$LAUNCHER_PATH" ]; then
+    chmod +x "$LAUNCHER_PATH"
+    echo -e "${GREEN}[OK]${NC} 启动器脚本已就绪（Go 优先，Python 备选，自动重试）"
 fi
 
-echo -e "${BLUE}[选择]${NC} 使用 $BACKEND_NAME 后端"
+# 使用统一启动器（内置容错和重试机制）
+PRIMARY_CMD="$LAUNCHER_PATH"
+PRIMARY_ARGS="[]"
+BACKEND_NAME="智能启动器"
+
+echo -e "${BLUE}[选择]${NC} 使用 $BACKEND_NAME（Go 优先 → Python 备选 → 5次重试）"
 
 # 备份旧配置
 if [ -f "$WINDSURF_MCP_FILE" ]; then
@@ -146,8 +144,7 @@ import json
 import os
 
 config_file = "$WINDSURF_MCP_FILE"
-primary_cmd = "$PRIMARY_CMD"
-backend_name = "$BACKEND_NAME"
+launcher_path = "$LAUNCHER_PATH"
 
 try:
     # 读取现有配置
@@ -159,40 +156,33 @@ try:
     if 'mcpServers' not in config:
         config['mcpServers'] = {}
     
-    # 配置 ask-continue
-    if backend_name == "Go":
-        config['mcpServers']['ask-continue'] = {
-            'command': primary_cmd,
-            'args': []
-        }
-    else:
-        config['mcpServers']['ask-continue'] = {
-            'command': primary_cmd,
-            'args': ["$PYTHON_SERVER_PATH"]
-        }
+    # 配置 ask-continue（使用智能启动器）
+    config['mcpServers']['ask-continue'] = {
+        'command': launcher_path,
+        'args': [],
+        'disabled': False
+    }
     
     with open(config_file, 'w') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
     
-    print(f"MCP 配置已更新 ({backend_name} 后端)")
+    print("MCP 配置已更新（智能启动器：Go优先 → Python备选 → 5次重试）")
 except Exception as e:
     print(f"更新配置失败: {e}")
     exit(1)
 EOF
 else
     # 如果没有 Python，直接用 shell 创建配置
-    if [ "$BACKEND_NAME" = "Go" ]; then
-        cat > "$WINDSURF_MCP_FILE" << EOF
+    cat > "$WINDSURF_MCP_FILE" << EOF
 {
   "mcpServers": {
     "ask-continue": {
-      "command": "$GO_SERVER_PATH",
+      "command": "$LAUNCHER_PATH",
       "args": []
     }
   }
 }
 EOF
-    fi
 fi
 
 echo -e "${GREEN}[OK]${NC} MCP 配置已写入: $WINDSURF_MCP_FILE"
