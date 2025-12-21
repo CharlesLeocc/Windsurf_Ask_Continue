@@ -250,69 +250,62 @@ pip install -r requirements.txt
 - **Windows**: `C:\Users\你的用户名\.codeium\windsurf\mcp_config.json`
 - **Mac/Linux**: `~/.codeium/windsurf/mcp_config.json`
 
-**方式 A：使用 Go 版本（推荐，连接更稳定）**
+---
 
-```json
-{
-  "mcpServers": {
-    "ask-continue": {
-      "command": "你的完整路径/mcp-server-go/ask-continue-mcp",
-      "args": []
-    }
-  }
-}
-```
+### 🖥️ Windows 配置（直接启动 Python 或 Go）
 
-**Windows 示例**：
-```json
-{
-  "mcpServers": {
-    "ask-continue": {
-      "command": "F:/Projects/Windsurf_Ask_Continue/mcp-server-go/ask-continue-mcp.exe",
-      "args": []
-    }
-  }
-}
-```
+> ⚠️ **Windows 不支持 sh 启动器**，需要直接配置 Python 或 Go 命令
 
-**Mac/Linux 示例**：
-```json
-{
-  "mcpServers": {
-    "ask-continue": {
-      "command": "/Users/你的用户名/Windsurf_Ask_Continue/mcp-server-go/ask-continue-mcp",
-      "args": []
-    }
-  }
-}
-```
-
-**方式 B：使用 Python 版本**
-
+**方式 A：使用 Python 版本（推荐，图片预览更好）**
 ```json
 {
   "mcpServers": {
     "ask-continue": {
       "command": "python",
-      "args": ["你的完整路径/mcp-server-python/server.py"]
+      "args": ["F:/你的路径/Windsurf_Ask_Continue/mcp-server-python/server.py"]
     }
   }
 }
 ```
 
-**Windows 示例**：
+**方式 B：使用 Go 版本（连接更稳定）**
 ```json
 {
   "mcpServers": {
     "ask-continue": {
-      "command": "python",
-      "args": ["F:/Projects/Windsurf_Ask_Continue/mcp-server-python/server.py"]
+      "command": "F:/你的路径/Windsurf_Ask_Continue/mcp-server-go/ask-continue-mcp.exe",
+      "args": []
     }
   }
 }
 ```
 
-**Mac/Linux 示例**：
+**注意**：
+- 路径使用正斜杠 `/` 或双反斜杠 `\\`
+- Go 版本需要 `.exe` 后缀
+- 如果 `python` 命令不可用，尝试使用完整路径如 `C:/Python311/python.exe`
+
+---
+
+### 🍎 Mac/Linux 配置（推荐使用智能启动器）
+
+> ✅ **Mac/Linux 推荐使用 sh 启动器**，自动选择最佳后端并带重试机制
+
+**方式 A：使用智能启动器（推荐）**
+```json
+{
+  "mcpServers": {
+    "ask-continue": {
+      "command": "/Users/你的用户名/Windsurf_Ask_Continue/mcp-server-go/mcp-launcher.sh",
+      "args": [],
+      "disabled": false
+    }
+  }
+}
+```
+> 智能启动器特性：Python 优先 → Go 备选 → 自动重试 5 次
+
+**方式 B：直接使用 Python 版本**
 ```json
 {
   "mcpServers": {
@@ -324,11 +317,19 @@ pip install -r requirements.txt
 }
 ```
 
-**注意**：
-- 路径使用正斜杠 `/` 或双反斜杠 `\\`
-- 路径必须是绝对路径
-- Windows 上 Go 版本需要 `.exe` 后缀
-- Mac/Linux 上 Python 命令可能是 `python3`
+**方式 C：直接使用 Go 版本**
+```json
+{
+  "mcpServers": {
+    "ask-continue": {
+      "command": "/Users/你的用户名/Windsurf_Ask_Continue/mcp-server-go/ask-continue-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+**注意**：Mac/Linux 上 Python 命令通常是 `python3`
 
 #### 步骤 4：配置全局规则
 
