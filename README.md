@@ -6,7 +6,7 @@
 
 ### Windsurf Dialogue+ - 让 AI 对话永不结束
 
-[![Version](https://img.shields.io/badge/version-1.3.1-blue.svg)](https://github.com/1837620622/Windsurf_Ask_Continue)
+[![Version](https://img.shields.io/badge/version-1.3.2-blue.svg)](https://github.com/1837620622/Windsurf_Ask_Continue)
 [![License](https://img.shields.io/badge/license-CC%20BY--NC--SA%204.0-green.svg)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windsurf%20IDE-purple.svg)](https://windsurf.ai)
 [![Python](https://img.shields.io/badge/python-3.10+-yellow.svg)](https://python.org)
@@ -242,7 +242,7 @@ pip install -r requirements.txt
 1. 打开 Windsurf
 2. 按 `Ctrl+Shift+P`（Mac: `Cmd+Shift+P`）打开命令面板
 3. 输入 `Extensions: Install from VSIX`
-4. 选择项目目录下的 `windsurf-ask-continue-1.3.1.vsix` 文件
+4. 选择项目目录下的 `windsurf-ask-continue-1.3.2.vsix` 文件
 
 #### 步骤 3：配置 MCP
 
@@ -368,6 +368,12 @@ pip install -r requirements.txt
 ---
 
 ## 📝 更新日志
+
+### v1.3.2 (2025-12-21)
+- 🔧 **连接优化** - 改进重启服务和重新打开窗口的稳定性
+- 🐍 **Python 优先** - 智能启动器改为 Python 优先（图片预览更好）
+- ⏰ **超时延长** - 对话请求超时时间延长至 30 分钟
+- 🧹 **进程清理** - 重启服务时自动清理旧 MCP 进程
 
 ### v1.3.1 (2025-12-19)
 - 🌐 **中英文切换** - 右上角新增语言切换按钮，支持中文/英文界面

@@ -1690,27 +1690,38 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("askContinue.restart", () => {
+    vscode.commands.registerCommand("askContinue.restart", async () => {
       const config = vscode.workspace.getConfiguration("askContinue");
       const port = config.get<number>("serverPort", 23983);
+      
+      // 先清理旧进程
+      vscode.window.showInformationMessage("Ask Continue: 正在重启服务...");
+      await cleanupOldMcpProcesses();
+      
+      // 等待一小段时间确保端口释放
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 重启服务器
       startServer(port);
-      vscode.window.showInformationMessage(`Ask Continue 服务器已重启 (端口 ${port})`);
+      vscode.window.showInformationMessage(`Ask Continue: 服务器已重启 (端口 ${port})`);
     })
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("askContinue.openPanel", () => {
       if (lastPendingRequest) {
-        // 检查请求是否过期（10分钟）
-        const REQUEST_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+        // 检查请求是否过期（30分钟，延长超时时间）
+        const REQUEST_TIMEOUT = 30 * 60 * 1000; // 30 minutes
         if (Date.now() - lastPendingRequestTime > REQUEST_TIMEOUT) {
           lastPendingRequest = null;
-          vscode.window.showWarningMessage("Ask Continue: 待处理的请求已过期");
+          vscode.window.showWarningMessage("Ask Continue: 待处理的请求已过期，请让 AI 重新调用 ask_continue");
           return;
         }
+        // 重新打开对话窗口
         showAskContinueDialog(lastPendingRequest);
+        vscode.window.showInformationMessage("Ask Continue: 对话窗口已重新打开");
       } else {
-        vscode.window.showInformationMessage("Ask Continue: 没有待处理的对话请求");
+        vscode.window.showWarningMessage("Ask Continue: 没有待处理的对话请求。请让 AI 调用 ask_continue 工具。");
       }
     })
   );
