@@ -80,6 +80,10 @@ jobs:
             **⭐ 如果觉得好用，请给个 Star 支持一下！**
           files: |
             *.vsix
+            install.bat
+            install.sh
+            uninstall.bat
+            uninstall.sh
           draft: false
           prerelease: false
         env:
