@@ -3,18 +3,25 @@
 # MCP 服务启动器 - 带容错和重试机制
 # ============================================================
 # 逻辑：
-#   1. 优先尝试启动 Go 版本
-#   2. Go 失败则切换到 Python 版本
+#   1. 优先尝试启动 Python 版本（图片预览更好）
+#   2. Python 失败则切换到 Go 版本
 #   3. 两个都失败则进入重试机制（各 5 次，每次间隔 5 秒）
 # ============================================================
 
-# 获取脚本所在目录（mcp-server-go 目录）
+# 获取脚本所在目录（mcp-server-go 目录或 ~/.codeium/mcp）
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# 服务器路径
-GO_SERVER="$SCRIPT_DIR/ask-continue-mcp"
-PY_SERVER="$PROJECT_DIR/mcp-server-python/server.py"
+# 检测目录结构，支持两种部署方式
+if [ -d "$SCRIPT_DIR/mcp-server-python" ]; then
+    # ~/.codeium/mcp 部署方式
+    PY_SERVER="$SCRIPT_DIR/mcp-server-python/server.py"
+    GO_SERVER="$SCRIPT_DIR/ask-continue-mcp"
+else
+    # 项目目录部署方式
+    PROJECT_DIR="$( cd "$SCRIPT_DIR/.." && pwd )"
+    PY_SERVER="$PROJECT_DIR/mcp-server-python/server.py"
+    GO_SERVER="$SCRIPT_DIR/ask-continue-mcp"
+fi
 
 # 重试配置
 MAX_RETRIES=5
@@ -94,31 +101,31 @@ start_with_retry() {
 }
 
 # ============================================================
-# 主逻辑
+# 主逻辑（Python 优先，图片预览更好）
 # ============================================================
 log "========== MCP 启动器开始 =========="
 
-# 第一阶段：尝试 Go 版本
-if [ -f "$GO_SERVER" ]; then
-    log "检测到 Go 版本，优先启动"
-    try_go
-    # 如果 exec 成功，后面的代码不会执行
-    # 如果到这里说明失败了，进入重试
-    log "Go 版本首次启动失败，进入重试机制"
-    start_with_retry "go" && exit 0
-fi
-
-# 第二阶段：尝试 Python 版本
+# 第一阶段：优先尝试 Python 版本（图片预览更好）
 py_cmd=$(detect_python)
 if [ -n "$py_cmd" ] && [ -f "$PY_SERVER" ]; then
-    log "Go 版本不可用，切换到 Python 版本"
+    log "检测到 Python 版本，优先启动（图片预览支持更好）"
     try_python
     # 如果 exec 成功，后面的代码不会执行
+    # 如果到这里说明失败了，进入重试
     log "Python 版本首次启动失败，进入重试机制"
     start_with_retry "python" && exit 0
 fi
 
+# 第二阶段：Python 不可用，尝试 Go 版本
+if [ -f "$GO_SERVER" ]; then
+    log "Python 版本不可用，切换到 Go 版本"
+    try_go
+    # 如果 exec 成功，后面的代码不会执行
+    log "Go 版本首次启动失败，进入重试机制"
+    start_with_retry "go" && exit 0
+fi
+
 # 两个都失败
-log "错误：Go 和 Python 版本均不可用"
-echo "错误：无法启动 MCP 服务器，请检查 Go 或 Python 环境" >&2
+log "错误：Python 和 Go 版本均不可用"
+echo "错误：无法启动 MCP 服务器，请检查 Python 或 Go 环境" >&2
 exit 1
