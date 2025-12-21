@@ -142,23 +142,21 @@ def discover_extension_ports() -> list[int]:
     return ports
 
 
-async def request_user_input(reason: str) -> str:
+# ============================================================
+# 重试配置
+# ============================================================
+MAX_RETRY_COUNT = 5      # 最大重试次数
+RETRY_INTERVAL = 5       # 重试间隔（秒）
+
+
+async def try_connect_extension(request_id: str, reason: str) -> tuple[bool, str | None]:
     """
-    向 VS Code 扩展发送请求，等待用户输入
+    尝试连接扩展并发送请求
+    返回: (是否成功, 错误信息)
     """
-    request_id = f"req_{uuid.uuid4().hex[:12]}"
-    
-    # 创建 Future 来等待响应
-    loop = asyncio.get_event_loop()
-    future = loop.create_future()
-    pending_requests[request_id] = future
-    
-    # 发现可用的扩展端口
     extension_ports = discover_extension_ports()
     print(f"[MCP] 发现扩展端口: {extension_ports}", file=sys.stderr)
     
-    # 尝试连接所有发现的端口
-    connected = False
     last_error = None
     
     for port in extension_ports:
@@ -170,7 +168,7 @@ async def request_user_input(reason: str) -> str:
                         "type": "ask_continue",
                         "requestId": request_id,
                         "reason": reason,
-                        "callbackPort": current_callback_port,  # 告诉扩展回调端口
+                        "callbackPort": current_callback_port,
                     },
                     timeout=5.0,
                 )
@@ -178,11 +176,9 @@ async def request_user_input(reason: str) -> str:
                 if response.status_code == 200:
                     result = response.json()
                     if result.get("success"):
-                        connected = True
                         print(f"[MCP] 已连接到扩展端口 {port}", file=sys.stderr)
-                        break
+                        return (True, None)
                 elif response.status_code == 500:
-                    # 扩展返回错误，可能是 webview 创建失败
                     result = response.json()
                     last_error = f"扩展返回错误: {result.get('error', '未知')} - {result.get('details', '')}"
                     print(f"[MCP] 端口 {port} 返回错误: {last_error}", file=sys.stderr)
@@ -197,15 +193,58 @@ async def request_user_input(reason: str) -> str:
             last_error = str(e)
             continue
     
+    return (False, last_error)
+
+
+async def request_user_input(reason: str) -> tuple[bool, str]:
+    """
+    向 VS Code 扩展发送请求，等待用户输入
+    包含重试机制：失败时重试5次，每次间隔5秒
+    返回: (成功标志, 用户输入或错误信息)
+    """
+    request_id = f"req_{uuid.uuid4().hex[:12]}"
+    
+    # 创建 Future 来等待响应
+    loop = asyncio.get_event_loop()
+    future = loop.create_future()
+    pending_requests[request_id] = future
+    
+    # ============================================================
+    # 重试逻辑：最多重试5次，每次间隔5秒
+    # ============================================================
+    connected = False
+    last_error = None
+    
+    for attempt in range(1, MAX_RETRY_COUNT + 1):
+        print(f"[MCP] 第 {attempt}/{MAX_RETRY_COUNT} 次尝试连接扩展...", file=sys.stderr)
+        
+        success, error = await try_connect_extension(request_id, reason)
+        
+        if success:
+            connected = True
+            break
+        else:
+            last_error = error
+            if attempt < MAX_RETRY_COUNT:
+                print(f"[MCP] 连接失败，{RETRY_INTERVAL} 秒后重试...", file=sys.stderr)
+                await asyncio.sleep(RETRY_INTERVAL)
+            else:
+                print(f"[MCP] 已达最大重试次数 ({MAX_RETRY_COUNT} 次)，放弃连接", file=sys.stderr)
+    
     if not connected:
         pending_requests.pop(request_id, None)
-        raise Exception(f"无法连接到任何 VS Code 扩展。{last_error or ''}")
+        error_msg = f"无法连接到 VS Code 扩展（已重试 {MAX_RETRY_COUNT} 次）。{last_error or ''}"
+        print(f"[MCP] 最终连接失败: {error_msg}", file=sys.stderr)
+        return (False, error_msg)
     
     print(f"[MCP] 请求 {request_id} 已发送，等待用户输入...", file=sys.stderr)
     
     # 等待用户响应（无超时限制）
-    user_input = await future
-    return user_input
+    try:
+        user_input = await future
+        return (True, user_input)
+    except Exception as e:
+        return (False, str(e))
 
 
 async def main():
@@ -273,87 +312,88 @@ async def main():
         if name == "ask_continue":
             reason = arguments.get("reason", "任务已完成")
             
-            try:
-                print(f"[MCP] ask_continue 被调用，原因: {reason}", file=sys.stderr)
-                user_input = await request_user_input(reason)
-                
-                if not user_input.strip():
-                    return [
-                        TextContent(
-                            type="text",
-                            text="用户选择结束对话。本次对话结束。",
-                        )
-                    ]
-                
-                # 解析用户输入，分离文本和文件
-                result = []
-                import re
-                
-                # 检查是否包含文件数据（图片或其他文件）
-                # 匹配 [图片 X: name] 或 [文件 X: name] 后跟 data:xxx;base64,xxx
-                file_pattern = r'\[(图片|文件) \d+: ([^\]]+)\]\n(data:[^;]+;base64,[^\s]+)'
-                matches = re.findall(file_pattern, user_input)
-                
-                if matches:
-                    # 提取纯文本部分（移除文件数据）
-                    text_only = re.sub(file_pattern, '', user_input).strip()
-                    # 移除 [已上传图片/文件 X: xxx] 标记
-                    text_only = re.sub(r'\[已上传(图片|文件) \d+: [^\]]+\]', '', text_only).strip()
-                    
-                    # 添加文本内容
-                    if text_only:
-                        result.append(TextContent(
-                            type="text",
-                            text=f"用户希望继续，并提供了以下指令：\n\n{text_only}",
-                        ))
-                    else:
-                        result.append(TextContent(
-                            type="text",
-                            text="用户希望继续，并附加了文件：",
-                        ))
-                    
-                    # 处理每个文件
-                    for file_type, file_name, data_url in matches:
-                        # 解析 data URL
-                        data_match = re.match(r'data:([^;]+);base64,(.+)', data_url)
-                        if data_match:
-                            mime_type = data_match.group(1)
-                            base64_data = data_match.group(2)
-                            
-                            if mime_type.startswith('image/'):
-                                # 图片使用 ImageContent
-                                result.append(ImageContent(
-                                    type="image",
-                                    data=base64_data,
-                                    mimeType=mime_type,
-                                ))
-                            else:
-                                # 非图片文件，以文本形式展示
-                                result.append(TextContent(
-                                    type="text",
-                                    text=f"\n[附件: {file_name}]\n类型: {mime_type}\n内容(Base64): {base64_data[:100]}...(已截断)",
-                                ))
-                    
-                    result.append(TextContent(
-                        type="text",
-                        text="\n\n⚠️【强制提醒】请立即执行用户指令。完成后你【必须】再次调用 ask_continue 工具，这是强制要求，不可跳过！",
-                    ))
-                else:
-                    # 没有文件，只有文本
-                    result.append(TextContent(
-                        type="text",
-                        text=f"用户希望继续，并提供了以下指令：\n\n{user_input}\n\n⚠️【强制提醒】请立即执行以上指令。完成后你【必须】再次调用 ask_continue 工具，这是强制要求，不可跳过！",
-                    ))
-                
-                return result
-                
-            except Exception as e:
+            print(f"[MCP] ask_continue 被调用，原因: {reason}", file=sys.stderr)
+            success, result = await request_user_input(reason)
+            
+            # 连接失败时，返回友好提示而不触发重试
+            if not success:
                 return [
                     TextContent(
                         type="text",
-                        text=f"与 VS Code 扩展通信出错: {str(e)}\n\n请确保 Ask Continue 扩展已安装并在 VS Code 中运行。",
+                        text=f"⚠️ VS Code 扩展未连接: {result}\n\n请确保 Ask Continue 扩展已安装并在 Windsurf 中运行。\n如果扩展已安装，请尝试重新加载窗口（Cmd+Shift+P → Reload Window）。\n\n【注意】本次对话将继续，无需重试调用此工具。",
                     )
                 ]
+            
+            user_input = result
+            if not user_input.strip():
+                return [
+                    TextContent(
+                        type="text",
+                        text="用户选择结束对话。本次对话结束。",
+                    )
+                ]
+            
+            # 解析用户输入，分离文本和文件
+            import re
+            parsed_result = []
+            
+            # 检查是否包含文件数据（图片或其他文件）
+            # 匹配 [图片 X: name] 或 [文件 X: name] 后跟 data:xxx;base64,xxx
+            file_pattern = r'\[(图片|文件) \d+: ([^\]]+)\]\n(data:[^;]+;base64,[^\s]+)'
+            matches = re.findall(file_pattern, user_input)
+            
+            if matches:
+                # 提取纯文本部分（移除文件数据）
+                text_only = re.sub(file_pattern, '', user_input).strip()
+                # 移除 [已上传图片/文件 X: xxx] 标记
+                text_only = re.sub(r'\[已上传(图片|文件) \d+: [^\]]+\]', '', text_only).strip()
+                
+                # 添加文本内容
+                if text_only:
+                    parsed_result.append(TextContent(
+                        type="text",
+                        text=f"用户希望继续，并提供了以下指令：\n\n{text_only}",
+                    ))
+                else:
+                    parsed_result.append(TextContent(
+                        type="text",
+                        text="用户希望继续，并附加了文件：",
+                    ))
+                
+                # 处理每个文件
+                for file_type, file_name, data_url in matches:
+                    # 解析 data URL
+                    data_match = re.match(r'data:([^;]+);base64,(.+)', data_url)
+                    if data_match:
+                        mime_type = data_match.group(1)
+                        base64_data = data_match.group(2)
+                        
+                        if mime_type.startswith('image/'):
+                            # 图片使用 ImageContent
+                            parsed_result.append(ImageContent(
+                                type="image",
+                                data=base64_data,
+                                mimeType=mime_type,
+                            ))
+                        else:
+                            # 非图片文件，以文本形式展示
+                            parsed_result.append(TextContent(
+                                type="text",
+                                text=f"\n[附件: {file_name}]\n类型: {mime_type}\n内容(Base64): {base64_data[:100]}...(已截断)",
+                            ))
+                
+                parsed_result.append(TextContent(
+                    type="text",
+                    text="\n\n⚠️【强制提醒】请立即执行用户指令。完成后你【必须】再次调用 ask_continue 工具，这是强制要求，不可跳过！",
+                ))
+            else:
+                # 没有文件，只有文本
+                parsed_result.append(TextContent(
+                    type="text",
+                    text=f"用户希望继续，并提供了以下指令：\n\n{user_input}\n\n⚠️【强制提醒】请立即执行以上指令。完成后你【必须】再次调用 ask_continue 工具，这是强制要求，不可跳过！",
+                ))
+            
+            return parsed_result
         
         return [
             TextContent(

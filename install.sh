@@ -3,9 +3,9 @@
 # Ask Continue - Mac/Linux 一键安装脚本
 # ============================================================
 # 功能：
-#   1. 检查 Python 环境
+#   1. 检查 Python/Go 环境
 #   2. 安装 MCP Server 依赖
-#   3. 配置 MCP 配置文件
+#   3. 配置 MCP 配置文件（支持双后端）
 #   4. 配置全局规则文件
 #   5. 提示安装 VSIX 扩展
 # ============================================================
@@ -22,6 +22,12 @@ NC='\033[0m' # 无颜色
 # 获取脚本所在目录（支持软链接）
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# 后端选择标志
+USE_PYTHON=false
+USE_GO=false
+PYTHON_CMD=""
+GO_CMD=""
+
 echo ""
 echo -e "${BLUE}============================================${NC}"
 echo -e "${BLUE}   Ask Continue - 继续牛马 MCP 工具${NC}"
@@ -29,29 +35,74 @@ echo -e "${BLUE}   Mac/Linux 一键安装脚本${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
 
-# ========== 步骤 1：检查 Python ==========
-echo -e "${YELLOW}[1/5]${NC} 检查 Python 环境..."
+# ========== 步骤 1：检查运行环境 ==========
+echo -e "${YELLOW}[1/5]${NC} 检查运行环境..."
+
+# 检查 Python
 if command -v python3 &> /dev/null; then
     PYTHON_CMD="python3"
     PIP_CMD="pip3"
+    USE_PYTHON=true
 elif command -v python &> /dev/null; then
     PYTHON_CMD="python"
     PIP_CMD="pip"
+    USE_PYTHON=true
+fi
+
+if [ "$USE_PYTHON" = true ]; then
+    PYTHON_VERSION=$($PYTHON_CMD --version 2>&1)
+    echo -e "${GREEN}[OK]${NC} Python: $PYTHON_VERSION"
 else
-    echo -e "${RED}[错误]${NC} 未找到 Python，请先安装 Python 3.10+"
-    echo "下载地址: https://www.python.org/downloads/"
+    echo -e "${YELLOW}[提示]${NC} Python 未安装"
+fi
+
+# 检查 Go
+if command -v go &> /dev/null; then
+    GO_CMD="go"
+    USE_GO=true
+elif [ -f "/opt/homebrew/bin/go" ]; then
+    GO_CMD="/opt/homebrew/bin/go"
+    USE_GO=true
+elif [ -f "/usr/local/go/bin/go" ]; then
+    GO_CMD="/usr/local/go/bin/go"
+    USE_GO=true
+fi
+
+if [ "$USE_GO" = true ]; then
+    GO_VERSION=$($GO_CMD version 2>&1)
+    echo -e "${GREEN}[OK]${NC} Go: $GO_VERSION"
+else
+    echo -e "${YELLOW}[提示]${NC} Go 未安装"
+fi
+
+# 至少需要一个后端
+if [ "$USE_PYTHON" = false ] && [ "$USE_GO" = false ]; then
+    echo -e "${RED}[错误]${NC} 需要安装 Python 3.10+ 或 Go 1.21+"
+    echo "Python 下载: https://www.python.org/downloads/"
+    echo "Go 下载: https://go.dev/dl/"
     exit 1
 fi
 
-PYTHON_VERSION=$($PYTHON_CMD --version 2>&1)
-echo -e "${GREEN}[OK]${NC} $PYTHON_VERSION 已安装"
-
-# ========== 步骤 2：安装 Python 依赖 ==========
+# ========== 步骤 2：安装依赖 ==========
 echo ""
 echo -e "${YELLOW}[2/5]${NC} 安装 MCP Server 依赖..."
-cd "$SCRIPT_DIR/mcp-server-python"
-$PIP_CMD install -r requirements.txt -q
-echo -e "${GREEN}[OK]${NC} Python 依赖已安装"
+
+# 安装 Python 依赖
+if [ "$USE_PYTHON" = true ]; then
+    cd "$SCRIPT_DIR/mcp-server-python"
+    $PIP_CMD install -r requirements.txt -q
+    echo -e "${GREEN}[OK]${NC} Python 依赖已安装"
+fi
+
+# 编译 Go 版本
+if [ "$USE_GO" = true ]; then
+    cd "$SCRIPT_DIR/mcp-server-go"
+    if [ ! -f "ask-continue-mcp" ]; then
+        echo -e "${BLUE}[编译]${NC} 正在编译 Go 版本..."
+        $GO_CMD build -o ask-continue-mcp server.go
+    fi
+    echo -e "${GREEN}[OK]${NC} Go 版本已就绪"
+fi
 
 # ========== 步骤 3：配置 MCP ==========
 echo ""
@@ -60,90 +111,88 @@ echo -e "${YELLOW}[3/5]${NC} 配置 MCP..."
 # MCP 配置文件路径
 WINDSURF_MCP_DIR="$HOME/.codeium/windsurf"
 WINDSURF_MCP_FILE="$WINDSURF_MCP_DIR/mcp_config.json"
-SERVER_PATH="$SCRIPT_DIR/mcp-server-python/server.py"
+PYTHON_SERVER_PATH="$SCRIPT_DIR/mcp-server-python/server.py"
+GO_SERVER_PATH="$SCRIPT_DIR/mcp-server-go/ask-continue-mcp"
 
 # 创建目录
 mkdir -p "$WINDSURF_MCP_DIR"
 
-# 检查是否已有配置文件
-if [ -f "$WINDSURF_MCP_FILE" ]; then
-    # 备份旧配置
-    cp "$WINDSURF_MCP_FILE" "$WINDSURF_MCP_FILE.backup"
-    echo -e "${YELLOW}[备份]${NC} 旧 MCP 配置已备份到: $WINDSURF_MCP_FILE.backup"
-    
-    # 检查是否已包含 ask-continue 配置
-    if grep -q "ask-continue" "$WINDSURF_MCP_FILE"; then
-        echo -e "${YELLOW}[提示]${NC} 检测到已有 ask-continue 配置，将更新路径..."
-        # 使用 Python 更新 JSON（更可靠）
-        $PYTHON_CMD << EOF
-import json
-import sys
-
-config_file = "$WINDSURF_MCP_FILE"
-server_path = "$SERVER_PATH"
-
-try:
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-    
-    if 'mcpServers' not in config:
-        config['mcpServers'] = {}
-    
-    config['mcpServers']['ask-continue'] = {
-        'command': '$PYTHON_CMD',
-        'args': [server_path]
-    }
-    
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=2)
-    
-    print("配置已更新")
-except Exception as e:
-    print(f"更新配置失败: {e}", file=sys.stderr)
-    sys.exit(1)
-EOF
-    else
-        # 追加配置
-        $PYTHON_CMD << EOF
-import json
-import sys
-
-config_file = "$WINDSURF_MCP_FILE"
-server_path = "$SERVER_PATH"
-
-try:
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-    
-    if 'mcpServers' not in config:
-        config['mcpServers'] = {}
-    
-    config['mcpServers']['ask-continue'] = {
-        'command': '$PYTHON_CMD',
-        'args': [server_path]
-    }
-    
-    with open(config_file, 'w') as f:
-        json.dump(config, f, indent=2)
-    
-    print("配置已添加")
-except Exception as e:
-    print(f"更新配置失败: {e}", file=sys.stderr)
-    sys.exit(1)
-EOF
-    fi
+# 确定使用哪个后端（优先使用 Go，连接更稳定）
+if [ "$USE_GO" = true ] && [ -f "$GO_SERVER_PATH" ]; then
+    PRIMARY_CMD="$GO_SERVER_PATH"
+    PRIMARY_ARGS="[]"
+    BACKEND_NAME="Go"
+elif [ "$USE_PYTHON" = true ]; then
+    PRIMARY_CMD="$PYTHON_CMD"
+    PRIMARY_ARGS="[\"$PYTHON_SERVER_PATH\"]"
+    BACKEND_NAME="Python"
 else
-    # 创建新配置文件
-    cat > "$WINDSURF_MCP_FILE" << EOF
+    echo -e "${RED}[错误]${NC} 无可用后端"
+    exit 1
+fi
+
+echo -e "${BLUE}[选择]${NC} 使用 $BACKEND_NAME 后端"
+
+# 备份旧配置
+if [ -f "$WINDSURF_MCP_FILE" ]; then
+    cp "$WINDSURF_MCP_FILE" "$WINDSURF_MCP_FILE.backup"
+    echo -e "${YELLOW}[备份]${NC} 旧 MCP 配置已备份"
+fi
+
+# 使用 Python 更新 JSON（更可靠）
+if [ "$USE_PYTHON" = true ]; then
+    $PYTHON_CMD << EOF
+import json
+import os
+
+config_file = "$WINDSURF_MCP_FILE"
+primary_cmd = "$PRIMARY_CMD"
+backend_name = "$BACKEND_NAME"
+
+try:
+    # 读取现有配置
+    config = {}
+    if os.path.exists(config_file):
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+    
+    if 'mcpServers' not in config:
+        config['mcpServers'] = {}
+    
+    # 配置 ask-continue
+    if backend_name == "Go":
+        config['mcpServers']['ask-continue'] = {
+            'command': primary_cmd,
+            'args': []
+        }
+    else:
+        config['mcpServers']['ask-continue'] = {
+            'command': primary_cmd,
+            'args': ["$PYTHON_SERVER_PATH"]
+        }
+    
+    with open(config_file, 'w') as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+    
+    print(f"MCP 配置已更新 ({backend_name} 后端)")
+except Exception as e:
+    print(f"更新配置失败: {e}")
+    exit(1)
+EOF
+else
+    # 如果没有 Python，直接用 shell 创建配置
+    if [ "$BACKEND_NAME" = "Go" ]; then
+        cat > "$WINDSURF_MCP_FILE" << EOF
 {
   "mcpServers": {
     "ask-continue": {
-      "command": "$PYTHON_CMD",
-      "args": ["$SERVER_PATH"]
+      "command": "$GO_SERVER_PATH",
+      "args": []
     }
   }
 }
 EOF
+    fi
 fi
 
 echo -e "${GREEN}[OK]${NC} MCP 配置已写入: $WINDSURF_MCP_FILE"
